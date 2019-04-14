@@ -1,0 +1,78 @@
+---
+title: "Pairwise Comparison Analysis"
+author: "Koki Sasagawa"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r}
+library(BradleyTerry2)
+library(qvcalc)
+# Specify file directory 
+direct = './output/'
+```
+
+# BradleyTerryModel 
+```{r}
+# Load water source comparison results as binomial frequencies 
+comparison_full <- read.csv(paste(file=direct, 'win_table_US(full).csv', sep=''))
+head(comparison_full)
+```
+The one-sided model formula specifies the model for **'player ability'**, in this case the **'Relative preferability'**.  
+The id argument specifies that 'source' is the name to be used for the factor that identifies the player.  
+The estimated coefficients are the maximum likelihood estimates of $\lambda_2$, $\lambda_3$, $\lambda_4$ with $\lambda_1$. 
+
+```{r}
+model <- BTm(outcome = cbind(win1, win2), player1 = source1, player2 = source2, formula = ~source, id = 'source', data=comparison_full)
+model
+```
+Get the relative preferability score of each water source using the function **'BTabilities'** which extracts estimates and standard errors for the log-ability scores $\lambda_1$, ..., $\lambda_k$. 
+
+**Quasi variance (qv)** estimates are statistical approach that is suitable for communicating the effects of a categorical explanatory variables within a statistical model. In standard statistical models the effects of a categorical explanatory variable are assessed by comparing one category (or level) that is set as a benchmark against which all other categories are compared. 
+
+The benchmark or reference category here is **Bottled water**. 
+
+Analysis reveals whether or not each category differs from the reference category. 
+```{r}
+RPS <- BTabilities(model)
+RPS
+```
+```{r}
+comparison_full.qv <-qvcalc(RPS)
+df <- data.frame(comparison_full.qv['qvframe'])
+df
+```
+```{r}
+# Label values rounded to the 5th decimal point
+values = round(df$qvframe.estimate, 4)
+values
+```
+
+```{r}
+# Generate point labels 
+library('latex2exp')
+# Convert from int to string
+point_labels <- paste(values)
+
+for (val in 1:length(point_labels)){
+  text <- c(point_labels[val], '$\\pm$', round(2*df$qvframe.quasiSE[val], 2))
+  text <- paste(text, collapse=" ")
+  point_labels[val] <-TeX(text)
+}
+```
+
+Plot RPS scores $\pm$ 2*Quasi Standard error. 
+Comparison Intervals - emphasis that they are constructed for inference about differences 
+Quasi-variance: Control relative error, not absolute error
+visual aid to inference about coefficient differences 
+```{r}
+x_axis <- c("Bottled Water", " Car Filter", "Public Water Fountain", "Tap Water (Home)")
+
+png('./images/RPS_full.png', width=800, height=500)
+plot(comparison_full.qv, levelNames=x_axis, main="Relative Preference Scores (RPS) with Quasi Standard Errors (All Respondents)", ylab="Estimated Preference Score", las=0, cex=1.2)
+text(df$qvframe.estimate, labels=point_labels, pos=4, cex=1.0)
+dev.off()
+```
+
+
